@@ -195,3 +195,127 @@ Cognitive Service 　┘         │　　　　　　　　 └ チャット通
 | 開発 | コードファースト                                         | デザイナーファースト（GUI）                                         |
 | 接続 | ・ビルトインのバインド（約10種類）<br>・カスタムバインド | ・豊富な標準コネクタ<br>・B2B統合ワークフロー<br>・カスタムコネクタ |
 | 監視 | Application Insights                                     | Azure Portal<br>Azure Monitor Log                                   |
+
+## アプリケーションアーキテクチャの設計
+
+1. メッセージングとイベントの概要
+2. メッセージングソリューション
+3. イベントソリューション
+4. Azure API Management
+5. Azure Cache for Redis
+
+### イベントとメッセージ
+
+情報の発信者（パブリッシャー）が発信した情報を、情報の受け手（コンシューマー）が受け取るための仕組み
+
+![イベントとメッセージ](../images/04/event_and_message.png)
+
+#### イベントとメッセージの比較
+
+| 項目     | イベント                                     | メッセージ                                                   |
+| -------- | -------------------------------------------- | ------------------------------------------------------------ |
+| データ   | 状態または状態変更の軽量な通知データ         | サービスによって生成される生データ                           |
+| 処理方法 | 受信者が決める（処理されないこともある）     | 発行元が決める                                               |
+| 用途     | スケーリングが必要なサーバレスソリューション | 後続のコンポーネントによる確実な処理が必要なアプリケーション |
+
+#### イベントの例
+
+![イベント例](../images/04/event_example.png)
+
+#### メッセージの例
+
+![メッセージ例](../images/04/message_example.png)
+
+## メッセージングソリューションの設計
+
+- Azure Queue Storage
+- Azure Service Bus
+
+### キューの検討ポイント
+
+- メッセージの順序 | 先入れ先出し（FIFO）を厳密に守るか、多少の前後を許容するか
+- 配信の仕方
+  - 最低1回（At-Least-Once）
+  - 最大1回（At-Most-Once）
+
+### Azure Queue storage
+
+ストレージアカウントベースのシンプルなキューサービス
+
+- 順序保証無し
+- 配信は最低1回（At-Most-Once）のみ
+- 大量のメッセージを扱える（80GB）
+
+![Azure Queue storage](../images/04/azure_queue_storage.png)
+
+### Azure Service Bus
+
+フルマネージドエンタープライズ統合メッセージブローカー
+
+- 先入れ先出し（FIFO）
+- 配信は、最低1回（At-Least-Once）／最大1回（At-Most-Once）を選択可
+
+![Azure Service Bus](../images/04/azure_service_bus.png)
+
+キューとトピック
+
+- キュー：1つのメッセージで1つの受信者に配信
+- トピック：1つのメッセージを複数のキューにコピーして複数の受信者に配信
+
+![キュートトピック](../images/04/queue_and_topic.png)
+
+## イベントソリューションの設計
+
+- Azure Event Hub
+- Azure Event Grid
+
+### Azure Event Hub
+
+フルマネージドリアルタイムデータインジェストサービス
+
+- 秒間で数万単位のイベントを処理できる
+- 取り込んだイベントデータはイベントハブ内のパーティション領域に追加される
+- 各イベントをストレージアカウントに保存することもできる
+  - BLOBストレージ or データレイクストレージ
+  - データはAVRO形式
+- 後続サービスが取り込んだイベントをPull方で処理する
+
+![Azure Event Hub](../images/04/azure_event_hub.png)
+
+### Azure Event Grid
+
+フルマネージドイベントルーティングサービス
+
+イベントの宛先を細かく設定する
+
+- 例）ストレージアカウントにデータが保存されたというイベントを、Azure Functionsに連携する
+
+![Azure Event Grid](../images/04/azure_event_grid.png)
+
+### イベントとメッセージソリューションの比較
+
+適材適所で組み合わせながらソリューションに組み込む
+
+![イベントとメッセージソリューション](../images/04/event_and_message_solutions.png)
+
+## Azue API Management
+
+APIを公開、セキュリティ保護、保守、分析するためのプラットフォーム
+
+- AKS、Functions、AppServiceのAPIレイヤーを外出しできる
+- 標準で管理者ポータルも自動的に生成される
+- APIリスクエストはゲートウェイを経由し、監視やコール数を制限できる
+
+![Azure API Management](../images/04/azure_apim.png)
+
+### Azure API Management レベル別機能
+
+![APIM レベル別機能](../images/04/apim_levels.png)
+
+## Azure Cache for Redis (廃止予定)
+
+※ 現在はAzure Managed Redis
+
+アクセス頻度の高いデータを保持して、アプリケーションのレスポンス速度を改善する
+
+![Azure Cache for Redis](../images/04/azure_cache_for_redis.png)
