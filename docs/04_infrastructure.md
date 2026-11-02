@@ -319,3 +319,165 @@ APIを公開、セキュリティ保護、保守、分析するためのプラ�
 アクセス頻度の高いデータを保持して、アプリケーションのレスポンス速度を改善する
 
 ![Azure Cache for Redis](../images/04/azure_cache_for_redis.png)
+
+## ネットワークソリューションの設計
+
+1. ネットワークアーキテクチャの概要
+2. 仮想ネットワークの接続
+3. オンプレミスネットワークとの接続
+4. アプリケーションの負荷分散
+5. ネットワークセキュリティ
+
+### ネットワーク設計のポイント
+
+![ネットワーク設計のポイント](../images/04/network_points.png)
+
+| 項目               | 内容                                                                              |
+| ------------------ | --------------------------------------------------------------------------------- |
+| 名前付け規則       | 名前から本番/テスト用、どのシステム向けのネットワークなのかを判断できるようにする |
+| リージョン         | 利用者に近いリージョンのネットワークを利用する                                    |
+| サブスクリプション | 課金およびアクセス権の単位。本番は別のサブスクに切り出す                          |
+| セグメンテーション | ネットワークのトラフィックをどのように分離するか。仮想NWの数、サブネットの分け方  |
+| セキュリティ       | NSG/FWで通信をフィルタリングしルーティングや、DDoS攻撃に対応する                  |
+| 接続               | 仮想NWやオンプレNWとどのように接続するか                                          |
+| アクセス許可       | どのような操作権限をユーザに割り当てるか                                          |
+| ポリシー           | 特定のリージョンに制限、全ての仮想NWにNSGを設定したり                             |
+
+## 仮想ネットワークの接続
+
+仮想ネットワークはAzureリソース、インターネット、オンプレミスを接続する基礎となるサービス
+
+- 仮想ネットワーク⇔オンプレミスネットワーク
+- 仮想ネットワーク⇔インターネット
+- 仮想ネットワーク⇔仮想ネットワーク
+
+![仮想ネットワーク](../images/04/virtual_network.png)
+
+### 仮想ネットワーク間の接続
+
+仮想ネットワーク間の通信はピアリングを設定
+
+![ピアリング](../images/04/vnet_paring.png)
+
+ピアリングした仮想ネットワーク同士でしか通信できない→指数関数的に増える
+
+![ピアリング数の増大](../images/04/vnet_paring_exp.png)
+
+#### ハブスポーク
+
+ハブスポーク構成により、ネットワークを拡張しやすくなる
+
+- ハブネット | Firewallや認証認可サーバなど共通となるシステムを配置
+- スポークネット | 個別システムを配置
+
+![ハブスポーク構成](../images/04/vnet_paring_hubspoke.png)
+
+### NAT Gateway
+
+NATゲートウェイを利用すると、インターネット向け通信の管理を簡略化できる
+
+![NATゲートウェイ](../images/04/nat_gateway.png)
+
+### システムルート
+
+既定でインターネットへの外向き通信とサブネット間通信が設定される
+
+- インターネット向け通信やサブネット間通信が既定で設定される
+- UDR（ユーザ定義ルート）で上書きできる（インターネット通信の手前にFirewallを挟むなど）
+
+![システムルート](../images/04/system_root.png)
+
+## オンプレミスネットワークとの接続
+
+### VPN接続
+
+オンプレミスネットワークと仮想ネットワーク間の暗号化された通信接続
+
+- オンプレミス側にオンプレミスVPNデバイス配置
+- 仮想ネットワーク側にVPNゲートウェイを配置
+- 両者をIPSecで暗号化化した通信トンネルで接続する
+- 通信はインターネット経由となる（最大10GBの帯域）
+
+![VPN接続](../images/04/vpn.png)
+
+### ExpressRoute
+
+オンプレミスと仮想ネットワーク間の専用線によるプライベート接続
+
+- VPNと比べて通信の安定性や帯域の確保が良い
+- ネットワークプロバイダとの調整が必要、構築に数ヶ月かかる
+
+![ExpressRoute](../images/04/express_route.png)
+
+### Azure Virtual WAN (vWAN)
+
+フルマネージドなWANサービス
+
+- WAN構築・運用をAzureに寄せることができる
+- 会社全体でハブスポークアーキテクチャを実装できる
+  - vWANと仮想ネットワークをペアリング
+  - ExpressRouteを接続
+- ルーティング管理はBGP
+- vWAN HUB | 各リージョンに1つ作成できる
+
+![vWAN](../images/04/vwan.png)
+
+## アプリケーションの負荷分散
+
+### 負荷分散ソリューションの選択
+
+![負荷分散ソリューション](../images/04/load_balancing.png)
+
+[アーキテクチャガイド](https://learn.microsoft.com/ja-jp/azure/architecture/guide/technology-choices/load-balancing-overview)
+
+### Azure Load Balancer
+
+ハイパフォーマンスで、低遅延のレイヤー4(TCP/UDP)の負荷分散
+
+![Azure Load Balancer](../images/04/azure_load_balancer.png)
+
+### Azure Application Gateway
+
+Webアプリケーションのためのレイヤー7(HTTP)ロードバランサー
+
+![Azure Application Gateway](../images/04/azure_application_gateway.png)
+
+### Azure Front Door
+
+グローバルにまたがるWebアプリケーションのためのレイヤー7(HTTP)ロードバランサー+CDN
+
+![Azure Front Door](../images/04/azure_flont_door.png)
+
+### Azure Traffic Manager
+
+DNSベースのロードバランサー
+
+![Azure Traffic Manager](../images/04/azure_traffic_manager.png)
+
+### 負荷分散ソリューションの選択（簡易版）
+
+HTTPベースか、リージョンベースかグローバルか、アプリの要件に合わせて組み合わせる
+
+![負荷分散ソリューションの選択](../images/04/compare_load_balancer.png)
+
+### [参考] Global Load Balancer
+
+![Global Load Balancer](../images/04/global_load_balancer.png)
+
+## ネットワークセキュリティ
+
+- 閉域化 | Azure Private Link
+- フィルタリング | Azure Firewall, NSG, DDos Protection
+- 管理 | Azure Bastion
+
+### Azure Private Link
+
+Azure PaaSやAzure上でホストしているサービスに対してプライベート接続を提供する
+
+![Azure Private Link](../images/azure_private_link.png)
+
+### Azure Firewall, ネットワークセキュリティグループ
+
+複数のフィルタリングを組み合わせることで、適切な多層防御を設計
+
+![Azure Firewall, NSG](../images/04/firewall_nsg.png)
